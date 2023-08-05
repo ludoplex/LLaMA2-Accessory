@@ -112,15 +112,12 @@ class MetricLogger(object):
             return self.meters[attr]
         if attr in self.__dict__:
             return self.__dict__[attr]
-        raise AttributeError("'{}' object has no attribute '{}'".format(
-            type(self).__name__, attr))
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{attr}'"
+        )
 
     def __str__(self):
-        loss_str = []
-        for name, meter in self.meters.items():
-            loss_str.append(
-                "{}: {}".format(name, str(meter))
-            )
+        loss_str = [f"{name}: {str(meter)}" for name, meter in self.meters.items()]
         return self.delimiter.join(loss_str)
 
     def synchronize_between_processes(self):
@@ -173,8 +170,7 @@ class MetricLogger(object):
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print('{} Total time: {}'.format(
-            header, total_time_str))
+        print(f'{header} Total time: {total_time_str}')
 
 
 def setup_for_distributed(is_master):
@@ -195,23 +191,15 @@ def setup_for_distributed(is_master):
 
 
 def is_dist_avail_and_initialized():
-    if not dist.is_available():
-        return False
-    if not dist.is_initialized():
-        return False
-    return True
+    return False if not dist.is_available() else bool(dist.is_initialized())
 
 
 def get_world_size():
-    if not is_dist_avail_and_initialized():
-        return 1
-    return dist.get_world_size()
+    return 1 if not is_dist_avail_and_initialized() else dist.get_world_size()
 
 
 def get_rank():
-    if not is_dist_avail_and_initialized():
-        return 0
-    return dist.get_rank()
+    return 0 if not is_dist_avail_and_initialized() else dist.get_rank()
 
 
 def is_main_process():
@@ -227,11 +215,13 @@ def init_distributed_mode(args):
         args.rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
         args.world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
         args.gpu = int(os.environ['OMPI_COMM_WORLD_LOCAL_RANK'])
-        args.dist_url = "tcp://%s:%s" % (os.environ['MASTER_ADDR'], os.environ['MASTER_PORT'])
+        args.dist_url = (
+            f"tcp://{os.environ['MASTER_ADDR']}:{os.environ['MASTER_PORT']}"
+        )
         os.environ['LOCAL_RANK'] = str(args.gpu)
         os.environ['RANK'] = str(args.rank)
         os.environ['WORLD_SIZE'] = str(args.world_size)
-        # ["RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT", "LOCAL_RANK"]
+            # ["RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT", "LOCAL_RANK"]
     elif 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ['WORLD_SIZE'])
@@ -259,8 +249,10 @@ def init_distributed_mode(args):
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = 'nccl'
-    print('| distributed init (rank {}): {}, gpu {}'.format(
-        args.rank, args.dist_url, args.gpu), flush=True)
+    print(
+        f'| distributed init (rank {args.rank}): {args.dist_url}, gpu {args.gpu}',
+        flush=True,
+    )
     torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                          world_size=args.world_size, rank=args.rank)
     torch.distributed.barrier()
@@ -272,11 +264,13 @@ def init_distributed_mode1(args):
         args.rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
         args.world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
         args.gpu = int(os.environ['OMPI_COMM_WORLD_LOCAL_RANK'])
-        args.dist_url = "tcp://%s:%s" % (os.environ['MASTER_ADDR'], os.environ['MASTER_PORT'])
+        args.dist_url = (
+            f"tcp://{os.environ['MASTER_ADDR']}:{os.environ['MASTER_PORT']}"
+        )
         os.environ['LOCAL_RANK'] = str(args.gpu)
         os.environ['RANK'] = str(args.rank)
         os.environ['WORLD_SIZE'] = str(args.world_size)
-        # ["RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT", "LOCAL_RANK"]
+            # ["RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT", "LOCAL_RANK"]
     elif 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ['WORLD_SIZE'])
@@ -294,8 +288,10 @@ def init_distributed_mode1(args):
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = 'nccl'
-    print('| distributed init (rank {}): {}, gpu {}'.format(
-        args.rank, args.dist_url, args.gpu), flush=True)
+    print(
+        f'| distributed init (rank {args.rank}): {args.dist_url}, gpu {args.gpu}',
+        flush=True,
+    )
     torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                          world_size=args.world_size, rank=args.rank)
     torch.distributed.barrier()
@@ -426,7 +422,7 @@ def resume_stage1(args, model_without_FSDP):
     :return:
     """
     if args.resume:
-        print("Resume checkpoint %s" % args.resume)
+        print(f"Resume checkpoint {args.resume}")
 
         mp_rank = fs_init.get_model_parallel_rank()
         mp_world_size = fs_init.get_model_parallel_world_size()
@@ -444,65 +440,69 @@ def resume_stage1(args, model_without_FSDP):
 
 
 def resume_stage2(args, model, optimizer, loss_scaler, dataset_train):
-    if args.resume:
-        print("Resume checkpoint %s" % args.resume)
+    if not args.resume:
+        return
+    print(f"Resume checkpoint {args.resume}")
 
-        mp_rank = fs_init.get_model_parallel_rank()
-        mp_world_size = fs_init.get_model_parallel_world_size()
-        dp_rank = fs_init.get_data_parallel_rank()
-
-
-        def _load_optimizer():
-            # if dp_rank == 0:
-            consilidated_optimizer_checkpoint_path = os.path.join(
-                args.resume,
-                f"consolidated.{mp_rank:02d}-of-{mp_world_size:02d}.optimizer.pth",
-            )
-            full_osd = torch.load(consilidated_optimizer_checkpoint_path)['optimizer']
-            # else:
-            #     full_osd = None
-
-            sharded_osd = FSDP.shard_full_optim_state_dict(full_osd, model, optim=optimizer)
-            optimizer.load_state_dict(sharded_osd)
-            print(f"load optimizer from {consilidated_optimizer_checkpoint_path}")
-        _load_optimizer()
-
-        def _load_other():
-            consilidated_other_checkpoint_path = os.path.join(
-                args.resume,
-                f"consolidated.{mp_rank:02d}-of-{mp_world_size:02d}.other.pth",
-            )
-            other_state_dict = torch.load(consilidated_other_checkpoint_path)
-            loss_scaler.load_state_dict(other_state_dict['scaler'])
-
-            _epoch_iter = [
-                int(other_state_dict['epoch']) + 1 if 'epoch' in other_state_dict else None,
-                int(other_state_dict['iter']) + 1 if 'iter' in other_state_dict else None
-            ]
-            print(f"load other from {consilidated_other_checkpoint_path}")
-            print(f"loaded epoch & iter: {_epoch_iter}")
-            return _epoch_iter
-        epoch_iter = _load_other()
+    mp_rank = fs_init.get_model_parallel_rank()
+    mp_world_size = fs_init.get_model_parallel_world_size()
+    dp_rank = fs_init.get_data_parallel_rank()
 
 
-        def _load_rank_specific():
-            rank_specific_checkpoint_path = os.path.join(
-                args.resume,
-                f"rank-specific-{dist.get_rank():05d}-of-{dist.get_world_size():05d}.pth",
-            )
-            try:
-                rank_specific_state_dict = torch.load(rank_specific_checkpoint_path)
-                dataset_train.load_state_dict(rank_specific_state_dict["dataset_state"])
-            except Exception:
-                print(f"dataset state loading failed, either because dataset has not attribute 'load_state_dict',"
-                      f" or {rank_specific_checkpoint_path} does not exist")
-                print(f"This is okay if the dataset has no state dict")
+    def _load_optimizer():
+        # if dp_rank == 0:
+        consilidated_optimizer_checkpoint_path = os.path.join(
+            args.resume,
+            f"consolidated.{mp_rank:02d}-of-{mp_world_size:02d}.optimizer.pth",
+        )
+        full_osd = torch.load(consilidated_optimizer_checkpoint_path)['optimizer']
+        # else:
+        #     full_osd = None
+
+        sharded_osd = FSDP.shard_full_optim_state_dict(full_osd, model, optim=optimizer)
+        optimizer.load_state_dict(sharded_osd)
+        print(f"load optimizer from {consilidated_optimizer_checkpoint_path}")
+
+    _load_optimizer()
+
+    def _load_other():
+        consilidated_other_checkpoint_path = os.path.join(
+            args.resume,
+            f"consolidated.{mp_rank:02d}-of-{mp_world_size:02d}.other.pth",
+        )
+        other_state_dict = torch.load(consilidated_other_checkpoint_path)
+        loss_scaler.load_state_dict(other_state_dict['scaler'])
+
+        _epoch_iter = [
+            int(other_state_dict['epoch']) + 1 if 'epoch' in other_state_dict else None,
+            int(other_state_dict['iter']) + 1 if 'iter' in other_state_dict else None
+        ]
+        print(f"load other from {consilidated_other_checkpoint_path}")
+        print(f"loaded epoch & iter: {_epoch_iter}")
+        return _epoch_iter
+
+    epoch_iter = _load_other()
+
+
+    def _load_rank_specific():
+        rank_specific_checkpoint_path = os.path.join(
+            args.resume,
+            f"rank-specific-{dist.get_rank():05d}-of-{dist.get_world_size():05d}.pth",
+        )
+        try:
+            rank_specific_state_dict = torch.load(rank_specific_checkpoint_path)
+            dataset_train.load_state_dict(rank_specific_state_dict["dataset_state"])
+        except Exception:
+            print(f"dataset state loading failed, either because dataset has not attribute 'load_state_dict',"
+                  f" or {rank_specific_checkpoint_path} does not exist")
+            print("This is okay if the dataset has no state dict")
 
 
 
-        _load_rank_specific()
 
-        return epoch_iter
+    _load_rank_specific()
+
+    return epoch_iter
 
 
 def load_pretrained(load_dir, pretrained_type, model):
@@ -516,11 +516,7 @@ def load_pretrained(load_dir, pretrained_type, model):
                 os.path.join(load_dir, f"consolidated.{mp_rank:02d}-of-{mp_world_size:02d}.pth"),
                 os.path.join(load_dir, f"consolidated.{mp_rank:02d}-of-{mp_world_size:02d}.model.pth")
             ]
-            state_dict_path = None
-            for _ in candidate_names:
-                if os.path.exists(_):
-                    state_dict_path = _
-                    break
+            state_dict_path = next((_ for _ in candidate_names if os.path.exists(_)), None)
             if state_dict_path is None:
                 raise FileNotFoundError(f"none of {candidate_names} exist")
             state_dict = torch.load(state_dict_path, map_location='cpu')
@@ -547,16 +543,16 @@ def load_pretrained(load_dir, pretrained_type, model):
 
 def all_reduce_mean(x):
     world_size = get_world_size()
-    if world_size > 1:
-        if isinstance(x, torch.Tensor):
-            x_reduce = x.clone().cuda()
-        else:
-            x_reduce = torch.tensor(x).cuda()
-        dist.all_reduce(x_reduce)
-        x_reduce /= world_size
-        return x_reduce.item()
-    else:
+    if world_size <= 1:
         return x
+    x_reduce = (
+        x.clone().cuda()
+        if isinstance(x, torch.Tensor)
+        else torch.tensor(x).cuda()
+    )
+    dist.all_reduce(x_reduce)
+    x_reduce /= world_size
+    return x_reduce.item()
 
 
 def add_weight_decay(model, weight_decay=1e-5, skip_list=()):

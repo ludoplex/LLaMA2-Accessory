@@ -29,9 +29,7 @@ def _tokenize_fn(strings,
         torch.tensor(tokenizer.encode(text, bos=True, eos=False), dtype=torch.int64) for text in strings
     ]
 
-    input_ids = labels = [
-        tokenized for tokenized in tokenized_list
-    ]
+    input_ids = labels = list(tokenized_list)
     input_ids_lens = labels_lens = [
         tokenized.ne(-1).sum().item()
         for tokenized in tokenized_list

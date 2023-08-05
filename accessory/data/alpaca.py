@@ -175,7 +175,7 @@ class FinetuneDistSampler(Sampler):
         len_groups = [len(_) // global_bsz * global_bsz for _ in group_indices]
         group_indices = [indices[:len_indices] for indices, len_indices in zip(group_indices, len_groups)]
         group_n_batch = [len(_)//batch_size for _ in group_indices]
-        assert all([_%num_replicas==0 for _ in group_n_batch])
+        assert all(_%num_replicas==0 for _ in group_n_batch)
         n_total_batch = sum(group_n_batch)
 
         assert n_total_batch % self.num_replicas == 0

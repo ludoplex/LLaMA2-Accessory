@@ -27,7 +27,7 @@ class MetaModel(nn.Module):
         params = {}
         for _ in llama_config:
             with open(_, "r") as f:
-                params.update(json.loads(f.read()))
+                params |= json.loads(f.read())
         model_args: ModelArgs = ModelArgs(
             max_seq_len=max_seq_len, max_batch_size=32, **params
         )
@@ -58,7 +58,7 @@ class MetaModel(nn.Module):
 
     def get_trainable_params(self):
         llma_trainable = self.llma.get_trainable_params()
-        return {"llma." + name: param for name, param in llma_trainable.items()}
+        return {f"llma.{name}": param for name, param in llma_trainable.items()}
 
 
     def forward(self, examples, labels, images=None):
@@ -66,11 +66,11 @@ class MetaModel(nn.Module):
         output = output[:, :-1, :]
         labels = labels[:, 1:]
 
-        if labels.sum() == 0:
-           c_loss = output.mean() * 0
-        else:
-           c_loss = self.criterion(output.reshape(-1, 32000), labels.flatten())
-        return c_loss
+        return (
+            output.mean() * 0
+            if labels.sum() == 0
+            else self.criterion(output.reshape(-1, 32000), labels.flatten())
+        )
 
 
     def generate(
@@ -88,8 +88,8 @@ class MetaModel(nn.Module):
         prompt_tokens = [self.tokenizer.encode(
             x, bos=True, eos=False) for x in prompts]
 
-        min_prompt_size = min([len(t) for t in prompt_tokens])
-        max_prompt_size = max([len(t) for t in prompt_tokens])
+        min_prompt_size = min(len(t) for t in prompt_tokens)
+        max_prompt_size = max(len(t) for t in prompt_tokens)
 
         total_len = min(params.max_seq_len, max_gen_len + max_prompt_size)
 
