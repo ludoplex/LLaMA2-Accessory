@@ -50,7 +50,7 @@ fs_init.initialize_model_parallel(args.model_parallel_size)
 model = MetaModel(args.llama_type, args.llama_config, args.tokenizer_path, with_visual=False)
 print(f"load pretrained from {args.pretrained_path}")
 misc.load_pretrained(args.pretrained_path, args.pretrained_type, model)
-print("Model = %s" % str(model))
+print(f"Model = {str(model)}")
 model.cuda().half()
 
 
@@ -116,7 +116,7 @@ def worker_func():
 
 
 if dist.get_rank() == 0:
-    description = f"""
+    description = """
     # Single-turn demo🚀
     """
 

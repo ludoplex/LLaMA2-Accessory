@@ -133,14 +133,14 @@ def load_tensor_parallel_model(
         for class_, dict_ in _MODEL_PARALLEL_MODULES:
             if isinstance(module, class_):
                 for leaf_name, dim in dict_.items():
-                    full_name = name + "." + leaf_name if name else leaf_name
+                    full_name = f"{name}.{leaf_name}" if name else leaf_name
                     if dim >= 0:
                         weight_parallel_dim[full_name] = dim
                 break
 
     mp_world_size = fs_init.get_model_parallel_world_size()
 
-    if format in ["meta_ori", "consolidated"]:
+    if format in {"meta_ori", "consolidated"}:
         # meta_ori and consolidated are essentially the same format: Both store weights
         # of each model parallel rank in a separate file. The minor differences are:
         # 1. In "meta_ori" format, filenames contain only model_parallel_rank but in 
@@ -168,7 +168,7 @@ def load_tensor_parallel_model(
             full_path = os.path.join(path, fn)
             assert os.path.isfile(full_path), f"\"{full_path}\" is not a file."
             ckpt_files.append(full_path)
-        
+
         # Dispatch to different implementations for better performance: Shorten the start-up
         # time as much as possible because we strive for better user experience!
         if ckpt_mp_world_size % mp_world_size == 0:
@@ -183,12 +183,13 @@ def load_tensor_parallel_model(
             local_state_dict = _load_checkpoint_and_redistribute_general(
                 ckpt_files, weight_parallel_dim, verbose
             )
-        
+
         if format == "meta_ori":
             local_state_dict = OrderedDict(
-                ("llma." + key, value) for key, value in local_state_dict.items()
+                (f"llma.{key}", value)
+                for key, value in local_state_dict.items()
             )
-        
+
         return model.load_state_dict(local_state_dict, strict=False)
 
     else:
